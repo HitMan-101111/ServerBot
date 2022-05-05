@@ -41,8 +41,11 @@ class RobotEnv(gym.GoalEnv):
         self._env_setup(initial_qpos=initial_qpos)
         self.initial_state = copy.deepcopy(self.sim.get_state())
 
+        # DIY
         self.global_goal = self._sample_goal()
         self.goal = None
+        self.is_grasp_success = False
+
         obs = self._get_obs()
         self.action_space = spaces.Box(-1.0, 1.0, shape=(n_actions,), dtype="float32")
 
@@ -85,13 +88,13 @@ class RobotEnv(gym.GoalEnv):
         goal = self.goal.copy() if self.goal is not None else self.global_goal.copy()
         info = {
             "is_success": self._is_success(obs["achieved_goal"], goal),
-            "is_grasp_success": self._is_grasp_success(obs["achieved_goal"], goal),
         }
-
         # DIY
+        if not self.is_grasp_success:
+            self.is_grasp_success = self._is_grasp_success(obs["achieved_goal"], goal)
         if self.super_hrl_mode:
-            info['is_success'] = self._is_return_success(info)
-        info["is_done"] = self._is_done(info)
+            info['is_success'] = self._is_return_success()
+        info['is_done'] = self._is_done()
         done = info['is_done'] or (self.super_hrl_mode and info['is_success'])
 
         reward = self.compute_reward(obs["achieved_goal"], goal, info)
@@ -170,17 +173,14 @@ class RobotEnv(gym.GoalEnv):
 
     # DIY
     def _is_grasp_success(self, achieved_goal, desired_goal):
-        """Indicates whether not the achieved goal successfully achieved the desired goal."""
         raise NotImplementedError()
 
     # DIY
-    def _is_return_success(self, info):
-        """Indicates whether not the achieved goal successfully achieved the desired goal."""
+    def _is_return_success(self):
         raise NotImplementedError()
 
     # DIY
-    def _is_done(self, info):
-        """Indicates whether not the achieved goal moved the obstacles."""
+    def _is_done(self):
         raise NotImplementedError()
 
     def _sample_goal(self):
