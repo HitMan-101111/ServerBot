@@ -46,6 +46,9 @@ class RobotEnv(gym.GoalEnv):
         self.goal = None
         self.is_grasp_success = False
 
+        self.next_achieved_name = None
+        self.released_goal = np.zeros_like(self.global_goal)
+
         obs = self._get_obs()
         self.action_space = spaces.Box(-1.0, 1.0, shape=(n_actions,), dtype="float32")
 
@@ -82,10 +85,12 @@ class RobotEnv(gym.GoalEnv):
         self._set_action(action)
         self.sim.step()
         self._step_callback()
+
         obs = self._get_obs()
 
         # DIY
         goal = self.goal.copy() if self.goal is not None else self.global_goal.copy()
+
         info = {
             "is_success": self._is_success(obs["achieved_goal"], goal),
         }
@@ -93,7 +98,7 @@ class RobotEnv(gym.GoalEnv):
         if not self.is_grasp_success:
             self.is_grasp_success = self._is_grasp_success(obs["achieved_goal"], goal)
         if self.super_hrl_mode:
-            info['is_success'] = self._is_return_success()
+            info['is_success'] = self._is_release_success()
         info['is_done'] = self._is_done()
         done = info['is_done'] or (self.super_hrl_mode and info['is_success'])
 
@@ -163,6 +168,10 @@ class RobotEnv(gym.GoalEnv):
         """Returns the observation."""
         raise NotImplementedError()
 
+    # DIY
+    def _get_released_desired_goal(self, desired_goal_xpos: np.ndarray):
+        raise NotImplementedError()
+
     def _set_action(self, action):
         """Applies the given action to the simulation."""
         raise NotImplementedError()
@@ -176,7 +185,7 @@ class RobotEnv(gym.GoalEnv):
         raise NotImplementedError()
 
     # DIY
-    def _is_return_success(self):
+    def _is_release_success(self):
         raise NotImplementedError()
 
     # DIY

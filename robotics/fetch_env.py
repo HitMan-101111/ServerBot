@@ -224,7 +224,9 @@ class FetchEnv(robot_env.RobotEnv):
         reward = np.where(grip_achi_reward != 0, reward, self.learning_factor * achi_desi_reward)
 
         if self.is_grasp_success:
-            curr_delta_grip_dist = goal_distance(grip_pos, self.initial_gripper_xpos)
+            released_goal = self.released_goal.copy()
+            assert np.abs(np.sum(released_goal)) > epsilon
+            curr_delta_grip_dist = goal_distance(grip_pos, released_goal)
             delta_grip_reward = self.prev_delta_grip_dist - curr_delta_grip_dist
             delta_grip_reward = np.where(np.abs(delta_grip_reward) >= epsilon, delta_grip_reward, 0)
             self.prev_delta_grip_dist = curr_delta_grip_dist
@@ -338,6 +340,20 @@ class FetchEnv(robot_env.RobotEnv):
                 _verify_cube(cube_obs, starting_point, starting_point_idx, 'obstacle', obstacle_xpos_start,
                              obstacle_xpos_end)
 
+    # DIY
+    def _get_released_desired_goal(self, desired_goal_xpos: np.ndarray):
+        if self.next_achieved_name is None:
+            new_object_name_list = self.object_name_list.copy()
+            new_object_name_list.remove(self.achieved_name)
+            if len(new_object_name_list) == 0:
+                next_achieved_xpos = self.initial_gripper_xpos.copy()
+            else:
+                next_achieved_name = np.random.choice(new_object_name_list)
+                next_achieved_xpos = self.sim.data.get_geom_xpos(next_achieved_name.copy())
+        else:
+            next_achieved_xpos = self.sim.data.get_geom_xpos(self.next_achieved_name).copy()
+        return (desired_goal_xpos + next_achieved_xpos) / 2
+
     def _get_obs(self):
         # positions
         grip_pos = self.sim.data.get_site_xpos("robot0:grip")
@@ -434,11 +450,15 @@ class FetchEnv(robot_env.RobotEnv):
                 achieved_goal = np.squeeze(object_pos.copy())
 
         # DIY
+        goal = self.goal.copy() if self.goal is not None else self.global_goal.copy()
+
         if self.hrl_mode:
+            released_desired_goal = self.released_goal.copy()
             obs = np.concatenate(
                 [
                     cube_obs.flatten(),
                     np.concatenate(physical_obs),
+                    released_desired_goal,
                 ]
             )
         else:
@@ -459,7 +479,7 @@ class FetchEnv(robot_env.RobotEnv):
         return {
             "observation": obs.copy(),
             "achieved_goal": achieved_goal.copy(),
-            "desired_goal": self.goal.copy() if self.goal is not None else self.global_goal.copy(),
+            "desired_goal": goal.copy(),
         }
 
     # DIY
@@ -470,6 +490,9 @@ class FetchEnv(robot_env.RobotEnv):
             self.goal = goal.copy()
         else:
             self.goal = None
+
+        self.next_achieved_name = copy.deepcopy(self.achieved_name)
+
         return self._get_obs()
 
     def _viewer_setup(self):
@@ -601,21 +624,26 @@ class FetchEnv(robot_env.RobotEnv):
         d = goal_distance(achieved_goal, desired_goal)
         flag = d < self.distance_threshold
         if flag:
-            grip_xpos = self.sim.data.get_site_xpos("robot0:grip")
-            self.prev_delta_grip_dist = goal_distance(grip_xpos, self.initial_gripper_xpos)
+            self.released_goal = self._get_released_desired_goal(desired_goal_xpos=desired_goal)
+
+            grip_xpos = self.sim.data.get_site_xpos("robot0:grip").copy()
+            released_goal_xpos = self.released_goal.copy()
+            self.prev_delta_grip_dist = goal_distance(grip_xpos, released_goal_xpos)
+
             assert self.achieved_name in self.object_name_list
             achieved_goal_idx = self.object_name_list.index(self.achieved_name)
             self.init_object_xpos_list[achieved_goal_idx] = self.sim.data.get_geom_xpos(self.achieved_name).copy()
         return flag
 
-    def _is_return_success(self) -> bool:
+    def _is_release_success(self) -> bool:
         if self.is_grasp_success:
-            grip_xpos = self.sim.data.get_site_xpos("robot0:grip")
-            d = goal_distance(grip_xpos, self.initial_gripper_xpos)
+            grip_xpos = self.sim.data.get_site_xpos("robot0:grip").copy()
+            released_goal_xpos = self.released_goal.copy()
+            d = goal_distance(grip_xpos, released_goal_xpos)
             return d < self.distance_threshold
         return False
 
-    def _is_success(self, achieved_goal, desired_goal):
+    def _is_success(self, achieved_goal, desired_goal) -> bool:
         d = goal_distance(achieved_goal, desired_goal)
         return d < self.distance_threshold
 
