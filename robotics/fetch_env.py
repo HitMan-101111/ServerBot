@@ -445,20 +445,26 @@ class FetchEnv(robot_env.RobotEnv):
             achieved_goal = grip_pos.copy()
         else:
             if self.hrl_mode:
-                achieved_goal = cube_achieved_pos.copy()
+                if self.is_grasp_success:
+                    achieved_goal = grip_pos.copy()
+                else:
+                    achieved_goal = cube_achieved_pos.copy()
             else:
                 achieved_goal = np.squeeze(object_pos.copy())
 
         # DIY
         goal = self.goal.copy() if self.goal is not None else self.global_goal.copy()
 
+        if self.is_grasp_success:
+            released_goal = self.released_goal.copy()
+            assert np.abs(np.sum(released_goal)) > epsilon
+            goal = released_goal.copy()
+
         if self.hrl_mode:
-            released_desired_goal = self.released_goal.copy()
             obs = np.concatenate(
                 [
                     cube_obs.flatten(),
                     np.concatenate(physical_obs),
-                    released_desired_goal,
                 ]
             )
         else:
@@ -510,11 +516,16 @@ class FetchEnv(robot_env.RobotEnv):
         global_target_site_id = self.sim.model.site_name2id("global_target")
         target_site_id = self.sim.model.site_name2id("target")
         achieved_site_id = self.sim.model.site_name2id("achieved_site")
+        released_site_id = self.sim.model.site_name2id("released_site")
         self.sim.model.site_pos[global_target_site_id] = self.global_goal - sites_offset[global_target_site_id]
         if self.goal is not None:
             self.sim.model.site_pos[target_site_id] = self.goal - sites_offset[target_site_id]
         else:
             self.sim.model.site_pos[target_site_id] = np.array([20, 20, 0.5])
+        if self.is_grasp_success:
+            self.sim.model.site_pos[released_site_id] = self.released_goal - sites_offset[released_site_id]
+        else:
+            self.sim.model.site_pos[released_site_id] = np.array([20, 20, 0.5])
         self.sim.model.site_pos[achieved_site_id] = self.sim.data.get_geom_xpos(self.achieved_name) - sites_offset[achieved_site_id]
         self.sim.forward()
 
@@ -640,7 +651,7 @@ class FetchEnv(robot_env.RobotEnv):
             grip_xpos = self.sim.data.get_site_xpos("robot0:grip").copy()
             released_goal_xpos = self.released_goal.copy()
             d = goal_distance(grip_xpos, released_goal_xpos)
-            return d < self.distance_threshold
+            return d < (self.distance_threshold / 5)  # 0.01
         return False
 
     def _is_success(self, achieved_goal, desired_goal) -> bool:
