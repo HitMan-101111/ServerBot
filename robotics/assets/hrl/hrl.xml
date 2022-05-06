@@ -17,9 +17,9 @@
 			<site name="target" pos="0 0 0.5" size="0.02 0.02 0.02" rgba="1 0 0 1" type="box" />
 		</body>
 
-		<body name="plate" pos="-1 -1 0.5">
+		<body name="plate" pos="1.24 0.8 0.5">
 			<joint name="plate:joint" type="free" damping="1e8"></joint>
-			<geom size="0.05 0.05 1e-4" type="box" condim="3" name="plate" material="table_mat" mass="2" rgba="1 1 1 1"/>
+			<geom size="0.05 0.05 1e-3" type="box" condim="3" name="plate" material="table_mat" mass="2" rgba="1 1 1 1"/>
 		</body>
 
 		<include file="robot.xml" />

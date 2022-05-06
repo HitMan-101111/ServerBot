@@ -456,9 +456,7 @@ class FetchEnv(robot_env.RobotEnv):
         goal = self.goal.copy() if self.goal is not None else self.global_goal.copy()
 
         if self.is_grasp_success:
-            released_goal = self.released_goal.copy()
-            assert np.abs(np.sum(released_goal)) > epsilon
-            goal = released_goal.copy()
+            goal = self.released_goal.copy()
 
         if self.hrl_mode:
             obs = np.concatenate(
@@ -613,7 +611,7 @@ class FetchEnv(robot_env.RobotEnv):
 
             """
             if self.hrl_mode:
-                goal = np.array([1.45, 0.64, 0.54])
+                goal = np.array([1.5, 0.5, 0.42])
             """
 
         else:
@@ -651,7 +649,7 @@ class FetchEnv(robot_env.RobotEnv):
             grip_xpos = self.sim.data.get_site_xpos("robot0:grip").copy()
             released_goal_xpos = self.released_goal.copy()
             d = goal_distance(grip_xpos, released_goal_xpos)
-            return d < (self.distance_threshold / 5)  # 0.01
+            return d < self.distance_threshold
         return False
 
     def _is_success(self, achieved_goal, desired_goal) -> bool:
