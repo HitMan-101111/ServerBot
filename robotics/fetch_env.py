@@ -15,9 +15,9 @@ table_xpos_end = table_xpos + table_size
 
 d_list = [0.01 * i for i in np.arange(5 + 1)]
 d = d_list[2]
-length_scale = 21  # 25
-width_scale = 21  # 35
-height_scale = 21  # 17
+length_scale = 25
+width_scale = 35
+height_scale = 17
 length = length_scale * d
 width = width_scale * d
 height = height_scale * d
@@ -193,8 +193,8 @@ class FetchEnv(robot_env.RobotEnv):
         assert len(name_list) == len(xpos_list)
         move_count = 0
         achieved_xpos = self.sim.data.get_geom_xpos(self.achieved_name).copy()
-        fall_count = int(achieved_xpos[2] <= self.height_offset)
-        not_in_desk_count = int(achieved_xpos[2] <= 0.4 - epsilon)
+        fall_count = int(achieved_xpos[2] <= self.height_offset - 0.01)
+        not_in_desk_count = int(achieved_xpos[2] <= 0.4 - 0.01)
         for idx in np.arange(len(name_list)):
             name = name_list[idx]
             init_xpos = xpos_list[idx]
@@ -204,9 +204,9 @@ class FetchEnv(robot_env.RobotEnv):
             if delta_xpos > self.distance_threshold:
                 move_count += 1
 
-            if curr_xpos[2] <= 0.4 - epsilon:
+            if curr_xpos[2] <= 0.4 - 0.01:
                 not_in_desk_count += 1
-            elif curr_xpos[2] <= self.height_offset - epsilon:
+            elif curr_xpos[2] <= self.height_offset - 0.01:
                 fall_count += 1
 
         if mode == 'done':
@@ -356,8 +356,8 @@ class FetchEnv(robot_env.RobotEnv):
                 achieved_goal_size = 0.025
                 obstacle_size = self.object_generator.size_sup
 
-                # starting_point = self.cube_starting_point.copy()
-                starting_point = self.sim.data.get_site_xpos("robot0:grip").copy()
+                starting_point = self.cube_starting_point.copy()
+                # starting_point = self.sim.data.get_site_xpos("robot0:grip").copy()
 
                 achieved_goal_pos = self.sim.data.get_geom_xpos(self.achieved_name).copy()
                 cube_achieved_pos = np.squeeze(achieved_goal_pos.copy())
@@ -527,7 +527,6 @@ class FetchEnv(robot_env.RobotEnv):
         self.sim.model.site_pos[achieved_site_id] = self.sim.data.get_geom_xpos(self.achieved_name).copy() - \
                                                     sites_offset[achieved_site_id]
         self.sim.model.site_pos[cube_site_id] = self.cube_starting_point.copy() - sites_offset[cube_site_id]
-        # self.sim.model.site_pos[achieved_site_id] = np.array([20, 20, 0.5])
         self.sim.forward()
 
     def _set_hrl_initial_state(self, resample_mode=False):
@@ -597,9 +596,9 @@ class FetchEnv(robot_env.RobotEnv):
                 count += 1
                 # self.render()
             not_fall_off = np.all(
-                np.array([object_xpos[2] for object_xpos in self.init_object_xpos_list]) > self.height_offset - epsilon)
+                np.array([object_xpos[2] for object_xpos in self.init_object_xpos_list]) > self.height_offset - 0.01)
             all_in_desk = np.all(
-                np.array([object_xpos[2] for object_xpos in self.init_object_xpos_list]) > 0.4 - epsilon)
+                np.array([object_xpos[2] for object_xpos in self.init_object_xpos_list]) > 0.4 - 0.01)
             if not_fall_off and all_in_desk:
                 break
             object_dict = self._set_hrl_initial_state(resample_mode=True)
